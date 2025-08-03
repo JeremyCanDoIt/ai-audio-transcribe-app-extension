@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+build/
+*/dist/
+*/build/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# Environment files
+.env
+.env.local
+
+# IDE files
+.vscode/settings.json
+
+# OS files
+.DS_Store
+Thumbs.db

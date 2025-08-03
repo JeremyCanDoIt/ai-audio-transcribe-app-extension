@@ -1,0 +1,17 @@
+{
+  "name": "ai-audio-transcribe-app-extension",
+  "version": "1.0.0",
+  "description": "Real-time audio transcription Chrome extension",
+  "scripts": {
+    "dev:extension": "cd chrome-extension && npm run dev",
+    "build:extension": "cd chrome-extension && npm run build",
+    "dev:backend": "cd backend && dotnet run --project AudioTranscribe.API",
+    "test:backend": "cd backend && dotnet test",
+    "setup": "npm run setup:extension && npm run setup:backend",
+    "setup:extension": "cd chrome-extension && npm install",
+    "setup:backend": "cd backend && dotnet restore"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
