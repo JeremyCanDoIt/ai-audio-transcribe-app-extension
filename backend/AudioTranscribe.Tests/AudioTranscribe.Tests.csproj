@@ -20,4 +20,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AudioTranscribe.API\AudioTranscribe.API.csproj" />
+    <ProjectReference Include="..\AudioTranscribe.Core\AudioTranscribe.Core.csproj" />
+  </ItemGroup>
+
 </Project>

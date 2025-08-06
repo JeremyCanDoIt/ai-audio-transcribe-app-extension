@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcribe</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <span class="icon">🎙️</span>
+                <h1>Audio Transcribe</h1>
+            </div>
+            <div class="status" id="status">
+                <span class="status-indicator" id="statusIndicator">⚫</span>
+                <span id="statusText">Ready</span>
+            </div>
+        </div>
+
+        <!-- Current Tab Info -->
+        <div class="tab-info" id="tabInfo">
+            <div class="tab-title" id="tabTitle">No active tab</div>
+            <div class="tab-url" id="tabUrl"></div>
+        </div>
+
+        <!-- Main Control -->
+        <div class="controls">
+            <button id="recordButton" class="record-button" disabled>
+                <span class="button-icon" id="buttonIcon">🎙️</span>
+                <span id="buttonText">Start Recording</span>
+            </button>
+            
+            <!-- Progress indicator (hidden by default) -->
+            <div class="progress" id="progress" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Processing audio...</div>
+            </div>
+        </div>
+
+        <!-- Recent Transcripts -->
+        <div class="transcripts-section">
+            <div class="section-header">
+                <h3>Recent Transcripts</h3>
+                <button id="clearButton" class="clear-button">Clear</button>
+            </div>
+            
+            <div class="transcripts-container" id="transcriptsContainer">
+                <div class="no-transcripts" id="noTranscripts">
+                    No transcripts yet. Start recording to see transcriptions appear here.
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="usage-info" id="usageInfo">
+                Ready to transcribe
+            </div>
+            <button id="settingsButton" class="settings-button">⚙️</button>
+        </div>
+    </div>
+
+    <!-- Error Modal (hidden by default) -->
+    <div class="modal" id="errorModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⚠️ Error</h3>
+                <button class="modal-close" id="closeError">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="errorMessage">Something went wrong.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="retryButton" class="button-secondary">Retry</button>
+                <button id="okButton" class="button-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
