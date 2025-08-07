@@ -10,7 +10,8 @@ module.exports = {
   entry: {
     'background/service-worker': './background/service-worker.js',
     'popup/popup': './popup/popup.js',
-    'content/content-script': './content/content-script.js'
+    'content/content-script': './content/content-script.js',
+    'recorder/recorder-window': './recorder/recorder-window.js'
   },
   
   // Output configuration
@@ -51,6 +52,11 @@ module.exports = {
         { 
           from: 'popup/popup.css', 
           to: 'popup/popup.css' 
+        },
+        // Copy recorder window HTML
+        { 
+          from: 'recorder/recorder-window.html', 
+          to: 'recorder/recorder-window.html' 
         },
         // Copy assets (icons, etc.) if they exist
         { 
