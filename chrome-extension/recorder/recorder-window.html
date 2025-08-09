@@ -3,166 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Transcribe Recorder</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            width: 350px;
-            height: 200px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            overflow: hidden;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .header h1 {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .tab-info {
-            font-size: 12px;
-            opacity: 0.9;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .controls {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-        }
-
-        .record-button {
-            width: 80px;
-            height: 80px;
-            border: none;
-            border-radius: 50%;
-            font-size: 24px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .record-button:hover:not(:disabled) {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
-        }
-
-        .record-button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .record-button.recording {
-            background: rgba(220, 53, 69, 0.8);
-            border-color: rgba(220, 53, 69, 0.9);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-
-        .status {
-            font-size: 14px;
-            font-weight: 500;
-            text-align: center;
-            opacity: 0.9;
-        }
-
-        .footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 15px;
-            font-size: 11px;
-            opacity: 0.8;
-        }
-
-        .minimize-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            padding: 5px;
-            border-radius: 3px;
-            transition: background 0.2s ease;
-        }
-
-        .minimize-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .audio-visualizer {
-            width: 100%;
-            height: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 10px;
-            display: none;
-        }
-
-        .audio-visualizer.active {
-            display: block;
-        }
-
-        .audio-bars {
-            display: flex;
-            height: 100%;
-            align-items: center;
-            justify-content: center;
-            gap: 2px;
-        }
-
-        .audio-bar {
-            width: 3px;
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: 2px;
-            animation: audioWave 1.5s ease-in-out infinite;
-        }
-
-        .audio-bar:nth-child(1) { animation-delay: 0s; height: 20%; }
-        .audio-bar:nth-child(2) { animation-delay: 0.1s; height: 40%; }
-        .audio-bar:nth-child(3) { animation-delay: 0.2s; height: 60%; }
-        .audio-bar:nth-child(4) { animation-delay: 0.3s; height: 80%; }
-        .audio-bar:nth-child(5) { animation-delay: 0.4s; height: 100%; }
-        .audio-bar:nth-child(6) { animation-delay: 0.5s; height: 80%; }
-        .audio-bar:nth-child(7) { animation-delay: 0.6s; height: 60%; }
-        .audio-bar:nth-child(8) { animation-delay: 0.7s; height: 40%; }
-        .audio-bar:nth-child(9) { animation-delay: 0.8s; height: 20%; }
-
-        @keyframes audioWave {
-            0%, 100% { transform: scaleY(0.3); }
-            50% { transform: scaleY(1); }
-        }
-    </style>
+    <title>EchoAI - Audio Recorder</title>
+    <link rel="stylesheet" href="recorder-window.css">
 </head>
 <body>
     <div class="header">
@@ -171,11 +13,11 @@
     </div>
 
     <div class="controls">
-        <button id="recordButton" class="record-button" disabled>
+        <button id="stopButton" class="stop-button" disabled>
             <span id="buttonIcon">🎙️</span>
         </button>
         
-        <div class="status" id="status">Ready to record</div>
+        <div class="status" id="status">Starting...</div>
         
         <div class="audio-visualizer" id="audioVisualizer">
             <div class="audio-bars">

@@ -1,9 +1,9 @@
 // chrome-extension/recorder/recorder-window.js
-
+//Only way to circumvent manifest v3.
 class AudioRecorderWindow {
     constructor() {
         // DOM elements
-        this.recordButton = document.getElementById('recordButton');
+        this.stopButton = document.getElementById('stopButton');
         this.buttonIcon = document.getElementById('buttonIcon');
         this.status = document.getElementById('status');
         this.tabInfo = document.getElementById('tabInfo');
@@ -25,14 +25,18 @@ class AudioRecorderWindow {
         this.audioContext = null;
         this.audioSource = null;
 
+        //initialize
         this.init();
     }
 
+    /*
+        Is called from constructor. Initializes event listeners.
+    */
     async init() {
         console.log('Audio Recorder Window initializing...');
         
         try {
-            // Get the tab we're supposed to record from URL params
+            // Get the tab that is supposed to record from URL params
             const urlParams = new URLSearchParams(window.location.search);
             this.currentTabId = parseInt(urlParams.get('tabId'));
             
@@ -41,7 +45,7 @@ class AudioRecorderWindow {
             }
             
             this.setupEventListeners();
-            this.toggleRecording();
+            this.startRecording();
 
             this.updateUI();
             
@@ -52,9 +56,14 @@ class AudioRecorderWindow {
         }
     }
 
+    /*
+
+        setupEventListeners() called from init.
+
+    */
     setupEventListeners() {
         // Record button
-        this.recordButton.addEventListener('click', () => this.toggleRecording());
+        this.stopButton.addEventListener('click', () => this.stopRecording());
         
         // Minimize button
         this.minimizeBtn.addEventListener('click', () => this.minimizeWindow());
@@ -70,21 +79,24 @@ class AudioRecorderWindow {
         document.addEventListener('keydown', (event) => {
             if (event.code === 'Space' && !event.repeat) {
                 event.preventDefault();
-                this.toggleRecording();
+                this.stopRecording();
             }
         });
     }
 
+    /*
+        Checks if tab is actually loaded.
+        Called from init().
+    */
     async loadTabInfo() {
         try {
             if (this.currentTabId) {
                 this.currentTab = await chrome.tabs.get(this.currentTabId);
                 this.tabInfo.textContent = this.currentTab.title || 'Unknown Tab';
-                this.recordButton.disabled = false;
+                this.stopButton.disabled = false;
                 this.updateStatus('Ready to record');
             } else {
                 this.tabInfo.textContent = 'No tab selected';
-                this.recordButton.disabled = true;
                 this.updateStatus('No tab to record');
             }
         } catch (error) {
@@ -94,7 +106,8 @@ class AudioRecorderWindow {
         }
     }
 
-    async toggleRecording() {
+    //No longer need this as we are toggling it on by default.
+   /* async toggleRecording() {
         console.log('Toggle recording, current state:', this.isRecording);
         
         try {
@@ -108,11 +121,17 @@ class AudioRecorderWindow {
             this.updateStatus('Error: ' + error.message);
         }
     }
+    */
 
+    /*
+
+    Called from init();
+    */
     async startRecording() {
         console.log('Starting recording for tab:', this.currentTabId);
-        
-        this.recordButton.disabled = true;
+
+        //prevent user error when initializing
+        this.stopButton.disabled = true;
         this.updateStatus('Starting...');
         
         try {
@@ -126,7 +145,7 @@ class AudioRecorderWindow {
             // Set up MediaRecorder
             this.setupMediaRecorder();
             
-            // Start recording
+            // Record chunk every 10 seconds.
             this.mediaRecorder.start(10000); 
             
             // Update UI
@@ -143,14 +162,18 @@ class AudioRecorderWindow {
             this.updateStatus('Error: ' + error.message);
             throw error;
         } finally {
-            this.recordButton.disabled = false;
+            this.stopButton.disabled = false;
         }
     }
 
+    /*
+    Called when button is pressed.
+
+    */
     async stopRecording() {
         console.log('Stopping recording...');
         
-        this.recordButton.disabled = true;
+        this.stopButton.disabled = true;
         this.updateStatus('Stopping...');
         
         try {
@@ -169,7 +192,7 @@ class AudioRecorderWindow {
             this.cleanup(); // Force cleanup
             throw error;
         } finally {
-            this.recordButton.disabled = false;
+            this.stopButton.disabled = true;
         }
     }
 
@@ -211,6 +234,11 @@ class AudioRecorderWindow {
         });
     }
 
+    /*
+    Called from startRecording()
+    Initializes audio capture from chrome.tab.record.
+
+    */
     setupMediaRecorder() {
         try {
             // Create MediaRecorder with WebM format
@@ -222,13 +250,14 @@ class AudioRecorderWindow {
 
             console.log('MediaRecorder created with MIME type:', this.mediaRecorder.mimeType);
 
-            // Handle data available (audio chunks)
+            // Handle data available (audio chunks), every 10 seconds.
             this.mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
                     console.log('Audio chunk received, size:', event.data.size, 'bytes');
-                    this.audioChunks.push(event.data);
+                    var audioChunk= event.data;
+                    this.audioChunks.push(audioChunk);
                     
-                    // TODO: Later we'll send chunks to backend for transcription
+                    // TODO: Later we'll send chunk to backend for transcription
                     // For now, just log the progress
                     const totalSize = this.audioChunks.reduce((sum, chunk) => sum + chunk.size, 0);
                     console.log('Total audio captured:', totalSize, 'bytes');
@@ -277,6 +306,12 @@ class AudioRecorderWindow {
             throw error;
         }
     }
+
+    /*
+
+    setupAudioPassthrough(stream) takes the audio stream and enables playback.
+    Otherwise audio will be mute once recording starts.
+    */
     setupAudioPassthrough(stream) {
         try {
             // Create AudioContext to route captured audio back to speakers
@@ -295,7 +330,9 @@ class AudioRecorderWindow {
             // This is not critical - recording will still work
         }
     }
-
+    /*
+        If errors occur or stopButton is pressed.
+    */
     cleanup() {
         console.log('Cleaning up recording resources...');
         
@@ -310,7 +347,7 @@ class AudioRecorderWindow {
             this.audioContext.close();
             this.audioContext = null;
         }
-
+        
         // Stop audio stream
         if (this.audioStream) {
             this.audioStream.getTracks().forEach(track => {
@@ -324,7 +361,7 @@ class AudioRecorderWindow {
         this.isRecording = false;
         this.mediaRecorder = null;
         this.startTime = null;
-        
+        this.audioChunks = [];
         // Update UI
         this.updateUI();
     }
@@ -341,18 +378,18 @@ class AudioRecorderWindow {
     updateUI() {
         if (this.isRecording) {
             // Recording state
-            this.recordButton.classList.add('recording');
+            this.stopButton.classList.add('recording');
             this.buttonIcon.textContent = '⏹️';
             this.audioVisualizer.classList.add('active');
             this.updateStatus('Recording...');
         } else {
             // Ready state
-            this.recordButton.classList.remove('recording');
+            this.stopButton.classList.remove('recording');
             this.buttonIcon.textContent = '🎙️';
             this.audioVisualizer.classList.remove('active');
             this.duration.textContent = '00:00';
             
-            if (this.recordButton.disabled) {
+            if (this.stopButton.disabled) {
                 this.updateStatus('Loading...');
             } else {
                 this.updateStatus('Ready to record');

@@ -58,6 +58,10 @@ module.exports = {
           from: 'recorder/recorder-window.html', 
           to: 'recorder/recorder-window.html' 
         },
+        { 
+          from: 'recorder/recorder-window.css', 
+          to: 'recorder/recorder-window.css' 
+        },
         // Copy assets (icons, etc.) if they exist
         { 
           from: 'assets', 
