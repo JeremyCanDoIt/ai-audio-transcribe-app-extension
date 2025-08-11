@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using AudioTranscribe.Core.Models;
 using AudioTranscribe.Infrastructure.Configuration;
 using AudioTranscribe.Infrastructure.Models;
+using Microsoft.AspNetCore.Http;
 
 namespace AudioTranscribe.Infrastructure.Services
 {
@@ -20,44 +21,63 @@ namespace AudioTranscribe.Infrastructure.Services
             _settings = settings.Value;
             _logger = logger;
 
-            _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
+            // Make sure BaseUrl ends with a slash for proper URL joining
+            var baseUrl = _settings.BaseUrl.TrimEnd('/') + "/";
+            _httpClient.BaseAddress = new Uri(baseUrl);
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ApiKey}");
             _httpClient.Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds);
+
+            // Debug: Log the Authorization header to make sure it's set
+            _logger.LogInformation("Authorization header set: {HasAuth}", 
+                _httpClient.DefaultRequestHeaders.Contains("Authorization") ? "YES" : "NO");
+            
+            _logger.LogInformation("Base URL set to: {BaseUrl}", _httpClient.BaseAddress);
+            
+            if (_httpClient.DefaultRequestHeaders.Contains("Authorization"))
+            {
+                var authHeader = _httpClient.DefaultRequestHeaders.GetValues("Authorization").FirstOrDefault();
+                _logger.LogInformation("Auth header value: {AuthValue}", 
+                    authHeader?.StartsWith("Bearer sk-") == true ? "Bearer sk-***" : "INVALID FORMAT");
+            }
         }
 
-        public async Task<TranscriptionResponse> TranscribeAsync(TranscriptionRequest request)
+        public async Task<TranscriptionResponse> TranscribeAsync(dynamic request)
         {
             var startTime = DateTime.UtcNow;
             
             try
             {
+                IFormFile audioFile = request.AudioFile;
+                string? language = request.Language;
+                string? translateTo = request.TranslateTo;
+                int? sequenceNumber = request.SequenceNumber;
+
                 _logger.LogInformation("Starting transcription for {FileName} ({FileSize} bytes)", 
-                    request.FileName, request.AudioData.Length);
+                    audioFile.FileName, audioFile.Length);
+
+                // Convert IFormFile to byte array
+                byte[] audioBytes;
+                using (var memoryStream = new MemoryStream())
+                {
+                    await audioFile.CopyToAsync(memoryStream);
+                    audioBytes = memoryStream.ToArray();
+                }
+
+                _logger.LogInformation("Audio bytes length: {Length}", audioBytes.Length);
 
                 string resultText;
                 bool isTranslation = false;
-                string? language = request.Language;
+                string? resultLanguage = language;
 
-                // If translation is requested, use translation endpoint
-                if (!string.IsNullOrEmpty(request.TranslateTo))
+                if (!string.IsNullOrEmpty(translateTo) && translateTo == "en")
                 {
-                    if (request.TranslateTo == "en")
-                    {
-                        resultText = await GetTranslationAsync(request);
-                        isTranslation = true;
-                        language = "en";
-                    }
-                    else
-                    {
-                        // TODO: Add support for other target languages using different translation service
-                        _logger.LogInformation("Translation to {Language} not yet implemented, using transcription instead", request.TranslateTo);
-                        resultText = await GetTranscriptionAsync(request);
-                    }
+                    resultText = await GetTranslationAsync(audioBytes, audioFile.FileName, audioFile.ContentType);
+                    isTranslation = true;
+                    resultLanguage = "en";
                 }
                 else
                 {
-                    // Just transcribe in original language
-                    resultText = await GetTranscriptionAsync(request);
+                    resultText = await GetTranscriptionAsync(audioBytes, audioFile.FileName, audioFile.ContentType, language);
                 }
                 
                 var processingTime = DateTime.UtcNow - startTime;
@@ -68,11 +88,11 @@ namespace AudioTranscribe.Infrastructure.Services
                 {
                     Text = resultText,
                     IsTranslation = isTranslation,
-                    Language = language,
+                    Language = resultLanguage,
                     ProcessedAt = DateTimeOffset.UtcNow,
                     ProcessingTime = processingTime,
-                    SequenceNumber = request.SequenceNumber,
-                    AudioFileSize = request.AudioData.Length
+                    SequenceNumber = sequenceNumber,
+                    AudioFileSize = audioFile.Length
                 };
             }
             catch (Exception ex)
@@ -82,33 +102,42 @@ namespace AudioTranscribe.Infrastructure.Services
             }
         }
 
-        private async Task<string> GetTranscriptionAsync(TranscriptionRequest request)
+        private async Task<string> GetTranscriptionAsync(byte[] audioBytes, string fileName, string contentType, string? language)
         {
             using var content = new MultipartFormDataContent();
             
-            var audioContent = new ByteArrayContent(request.AudioData);
-            audioContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(request.ContentType);
-            content.Add(audioContent, "file", request.FileName);
+            // Just add the raw audio bytes
+            var audioContent = new ByteArrayContent(audioBytes);
+            audioContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+            content.Add(audioContent, "file", fileName);
             
+            // Add required model parameter
             content.Add(new StringContent(_settings.Model), "model");
             
-            if (!string.IsNullOrEmpty(request.Language))
+            // Add language if provided
+            if (!string.IsNullOrEmpty(language))
             {
-                content.Add(new StringContent(request.Language), "language");
+                content.Add(new StringContent(language), "language");
             }
             
+            // Request JSON response
             content.Add(new StringContent("json"), "response_format");
 
-            var response = await _httpClient.PostAsync("/audio/transcriptions", content);
+            _logger.LogInformation("Sending to OpenAI: model={Model}, language={Language}", _settings.Model, language ?? "auto");
+
+            // Remove leading slash - HttpClient will combine BaseAddress + relative URL
+            var response = await _httpClient.PostAsync("audio/transcriptions", content);
             
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                var errorResponse = await TryParseErrorResponseAsync(errorContent);
-                throw new HttpRequestException($"OpenAI API error: {response.StatusCode} - {errorResponse?.Error?.Message ?? errorContent}");
+                _logger.LogError("OpenAI API error: {StatusCode} - {Error}", response.StatusCode, errorContent);
+                throw new HttpRequestException($"OpenAI API error: {response.StatusCode} - {errorContent}");
             }
 
             var jsonResponse = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation("OpenAI response: {Response}", jsonResponse);
+            
             var result = JsonSerializer.Deserialize<OpenAITranscriptionResponse>(jsonResponse, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
@@ -117,27 +146,36 @@ namespace AudioTranscribe.Infrastructure.Services
             return result?.Text ?? string.Empty;
         }
 
-        private async Task<string> GetTranslationAsync(TranscriptionRequest request)
+        private async Task<string> GetTranslationAsync(byte[] audioBytes, string fileName, string contentType)
         {
             using var content = new MultipartFormDataContent();
             
-            var audioContent = new ByteArrayContent(request.AudioData);
-            audioContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(request.ContentType);
-            content.Add(audioContent, "file", request.FileName);
+            // Just add the raw audio bytes
+            var audioContent = new ByteArrayContent(audioBytes);
+            audioContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+            content.Add(audioContent, "file", fileName);
             
+            // Add required model parameter
             content.Add(new StringContent(_settings.Model), "model");
+            
+            // Request JSON response
             content.Add(new StringContent("json"), "response_format");
 
-            var response = await _httpClient.PostAsync("/audio/translations", content);
+            _logger.LogInformation("Sending to OpenAI translation endpoint");
+
+            // Remove leading slash - HttpClient will combine BaseAddress + relative URL
+            var response = await _httpClient.PostAsync("audio/translations", content);
             
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                var errorResponse = await TryParseErrorResponseAsync(errorContent);
-                throw new HttpRequestException($"OpenAI translation API error: {response.StatusCode} - {errorResponse?.Error?.Message ?? errorContent}");
+                _logger.LogError("OpenAI translation API error: {StatusCode} - {Error}", response.StatusCode, errorContent);
+                throw new HttpRequestException($"OpenAI translation API error: {response.StatusCode} - {errorContent}");
             }
 
             var jsonResponse = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation("OpenAI translation response: {Response}", jsonResponse);
+            
             var result = JsonSerializer.Deserialize<OpenAITranscriptionResponse>(jsonResponse, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
