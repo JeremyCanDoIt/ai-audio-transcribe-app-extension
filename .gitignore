@@ -24,3 +24,8 @@ obj/
 # OS files
 .DS_Store
 Thumbs.db
+
+appsettings.json
+appsettings.Development.json
+backend/AudioTranscribe.API/appsettings.Development.json
+backend/AudioTranscribe.API/appsettings.Development.json
