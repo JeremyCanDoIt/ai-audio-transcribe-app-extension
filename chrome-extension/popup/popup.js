@@ -119,8 +119,8 @@ class AudioTranscribePopup {
             const window = await chrome.windows.create({
                 url: `recorder/recorder-window.html?tabId=${this.currentTabId}`,
                 type: 'popup',
-                width: 325,
-                height: 425,
+                width: 300,
+                height: 410,
                 top: 100,
                 left: 100,
                 focused: false
