@@ -22,7 +22,7 @@ namespace AudioTranscribe.Core.Models
 
         //Target langyage for translations
 
-        public string? TranslateTo { get; set; } = "en"; // Default to English for now
+        public string? TranslateTo { get; set; }
 
         // timestamp when the audio chunk was captured.
         public System.DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;

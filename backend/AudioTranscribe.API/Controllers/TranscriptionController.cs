@@ -19,6 +19,9 @@ namespace AudioTranscribe.API.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Transcribe audio file using OpenAI Whisper
+        /// </summary>
         [HttpPost("transcribe")]
         public async Task<ActionResult<TranscriptionResponse>> Transcribe([FromForm] TranscriptionApiRequest request)
         {
@@ -46,17 +49,17 @@ namespace AudioTranscribe.API.Controllers
                     });
                 }
 
-                _logger.LogInformation("Audio file size: {Size} bytes", request.AudioFile.Length);
+                // Convert API request to Core model
+                var coreRequest = await request.ToCoreModelAsync();
 
-                // Process transcription directly with IFormFile
+                // Process transcription
                 var startTime = DateTime.UtcNow;
-                var response = await _openAIService.TranscribeAsync(request);
+                var response = await _openAIService.TranscribeAsync(coreRequest);
                 var processingTime = DateTime.UtcNow - startTime;
 
                 // Set processing metrics
                 response.ProcessingTime = processingTime;
                 response.SequenceNumber = request.SequenceNumber;
-                response.AudioFileSize = request.AudioFile.Length;
 
                 _logger.LogInformation("Transcription completed in {ProcessingTime}ms for sequence {SequenceNumber}", 
                     processingTime.TotalMilliseconds, request.SequenceNumber);
@@ -76,6 +79,9 @@ namespace AudioTranscribe.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Health check endpoint
+        /// </summary>
         [HttpGet("health")]
         public ActionResult<object> Health()
         {
@@ -87,6 +93,9 @@ namespace AudioTranscribe.API.Controllers
             });
         }
 
+        /// <summary>
+        /// Get supported languages
+        /// </summary>
         [HttpGet("languages")]
         public ActionResult<object> GetSupportedLanguages()
         {

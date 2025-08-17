@@ -4,10 +4,6 @@ using AudioTranscribe.Infrastructure.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DEBUG: Check what environment and configuration we're using
-Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
-Console.WriteLine($"Content Root: {builder.Environment.ContentRootPath}");
-
 // Add services to the container
 builder.Services.AddControllers();
 
@@ -23,53 +19,33 @@ builder.Services.AddCors(options =>
     });
 });
 
-// DEBUG: Check what's in configuration before binding
-var openAiSection = builder.Configuration.GetSection("OpenAI");
-Console.WriteLine($"DEBUG - OpenAI section exists: {openAiSection.Exists()}");
-Console.WriteLine($"DEBUG - ApiKey from config: {openAiSection["ApiKey"]}");
-Console.WriteLine($"DEBUG - BaseUrl from config: {openAiSection["BaseUrl"]}");
-
-// Create and validate OpenAI settings immediately
-var openAiSettings = new OpenAISettings();
-builder.Configuration.GetSection("OpenAI").Bind(openAiSettings);
-
-Console.WriteLine($"DEBUG - After binding - ApiKey loaded: {(!string.IsNullOrEmpty(openAiSettings.ApiKey) ? "YES" : "NO")}");
-Console.WriteLine($"DEBUG - After binding - BaseUrl: {openAiSettings.BaseUrl}");
-Console.WriteLine($"DEBUG - After binding - Model: {openAiSettings.Model}");
-
-// Validate immediately
-if (string.IsNullOrEmpty(openAiSettings.ApiKey))
-{
-    throw new InvalidOperationException("OpenAI API key is required. Add it to appsettings.Development.json");
-}
-
-if (!openAiSettings.IsValid())
-{
-    throw new InvalidOperationException("OpenAI configuration is invalid");
-}
-
-Console.WriteLine("DEBUG - OpenAI configuration is valid!");
-
 // Add OpenAI service
 builder.Services.AddHttpClient<OpenAIService>();
 builder.Services.AddScoped<OpenAIService>();
 
-// Register the validated settings
-builder.Services.Configure<OpenAISettings>(builder.Configuration.GetSection("OpenAI"));
+// Add configuration with validation
+builder.Services.Configure<OpenAISettings>(options =>
+{
+    builder.Configuration.GetSection("OpenAI").Bind(options);
+    
+    // Validate API key is present
+    if (string.IsNullOrEmpty(options.ApiKey))
+    {
+        throw new InvalidOperationException(
+            "OpenAI API key is required. Set it using: dotnet user-secrets set \"OpenAI:ApiKey\" \"your-key\"");
+    }
+    
+    if (!options.IsValid())
+    {
+        throw new InvalidOperationException("OpenAI configuration is invalid");
+    }
+});
 
 // Add Swagger for testing
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-
-// FORCE CREATE THE OPENAI SERVICE TO TEST IT
-using (var scope = app.Services.CreateScope())
-{
-    Console.WriteLine("DEBUG - Testing OpenAI service creation...");
-    var openAiService = scope.ServiceProvider.GetRequiredService<OpenAIService>();
-    Console.WriteLine("DEBUG - OpenAI service created successfully!");
-}
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
